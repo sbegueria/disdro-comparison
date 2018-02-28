@@ -1,0 +1,491 @@
+---
+title: 'Comparison of precipitation measurements by OTT Parsivel2 and Thies LPM optical disdrometers'
+subtitle: 'Event E455'
+author: Santiago Beguería
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document: 
+    highlight: tango
+    number_sections: yes
+    theme: readable
+    toc: yes
+    fig_caption: yes
+    toc_float: true
+    collapsed: false
+  pdf_document:
+    fig_caption: yes
+    highlight: zenburn
+    toc: yes
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+# global options
+knitr::opts_chunk$set(echo = TRUE)
+
+# packages
+library(disdRo)
+library(cowplot)
+library(scales)
+
+# a function to produce fancy scientific axis ticks
+fancy_scientific <- function(l) {
+     # turn in to character string in scientific notation
+     l <- format(l, scientific = TRUE)
+     # quote the part before the exponent to keep all the digits
+     l <- gsub("^(.*)e", "'\\1'e", l)
+     # turn the 'e+' into plotmath format
+     l <- gsub("e", "%*%10^", l)
+     #
+     l <- gsub("^'1'%\\*%", "", l)
+     l <- gsub("\\^\\+", "\\^",l)
+     # return this as an expression
+     parse(text=l)
+}
+```
+
+# Introduction and data set
+
+|Event  | Start         | End       | Length| Mean I| Max I| Mean Z| Mean KE| Cum P| Np| d50|
+|:------|:--------------|:----------------|:--|:----|:----|:----|:----|:---|:-----|:-----|
+|455 p1| 23/02/2015 18:30| 23/02/2015 20:00| 126| 1.38| 8.35| 15.8| 7.7| 3.7| 53657| 0.321|
+|455 p2| 23/02/2015 18:30| 23/02/2015 20:00| 126| 2.24| 9.41| 23.1| 11.8| 4.0| 60577| 0.363|
+|455 p3| 23/02/2015 18:30| 23/02/2015 20:00| 126| 1.51| 8.27| 18.5| 10.8| 2.95| 20592| 0.547|
+|455 p4| 23/02/2015 18:30| 23/02/2015 20:00| 126| 1.58| 8.36| 19.3| 11.6| 3.1| 20117| 0.583|
+
+```{r times}
+  a <-as.POSIXct(strptime("2015-02-23 18:30:00","%Y-%m-%d %H:%M:%S"))
+  b <-as.POSIXct(strptime("2015-02-23 20:00:00","%Y-%m-%d %H:%M:%S"))
+  times <- seq(a, b, by="min")
+```
+
+Read the raw PSVD data, using function `psvd_read` from the `disdRo` package.
+
+```{r psvd_read}
+# Thies 1
+files <- list.files('./p1','.txt$|.txt.gz$', full.names=TRUE, recursive=TRUE)
+dsd1 <- psvd_read(files, type='Thies')
+dsd1 <- apply(dsd1, c(2,3), sum)
+
+# Thies 2
+files <- list.files('./p2','.txt$|.txt.gz$', full.names=TRUE, recursive=TRUE)
+dsd2 <- psvd_read(files, type='Thies')
+dsd2 <- apply(dsd2, c(2,3), sum)
+
+# Parsivel 1
+files <- list.files('./p3','.txt$|.txt.gz$', full.names=TRUE, recursive=TRUE)
+dsd3 <- psvd_read(files, type='Parsivel')
+dsd3 <- apply(dsd3, c(2,3), sum)
+
+# Parsivel 2
+files <- list.files('./p4','.txt$|.txt.gz$', full.names=TRUE, recursive=TRUE)
+dsd4 <- psvd_read(files, type='Parsivel')
+dsd4 <- apply(dsd4, c(2,3), sum)
+```
+
+
+
+----
+
+# PSVD plots
+
+Particle size and velocity plots, using function `psvd_plot` from the `disdRo`
+package. First, we shall plot the raw data as read from the disdrometer
+telegrams, and then we shall apply a filter to the PSVD matrix based on a 50%
+difference with respect to the fall velocity model of Beard (1976).
+
+## Unfiltered data
+
+```{r PSVDplot_unf, echo=FALSE, fig.height=9, fig.width=11, message=FALSE, warning=FALSE}
+p1 <- psvd_plot(dsd1, model='Beard', alt=230) +
+  ggtitle('T1') + xlim(0,6) + ylim(0,12)
+
+p2 <- psvd_plot(dsd2, model='Beard', alt=230) +
+  ggtitle('T2') + xlim(0,6) + ylim(0,12)
+
+p3 <- psvd_plot(dsd3, type='Parsivel', model='Beard', alt=230) +
+  ggtitle('P1') + xlim(0,6) + ylim(0,12)
+
+p4 <- psvd_plot(dsd4, type='Parsivel', model='Beard', alt=230) +
+  ggtitle('P2') + xlim(0,6) + ylim(0,12)
+
+plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+```
+
+
+## Filtered data
+
+We first create a filter using the function `psvd_filter` from the `disdRo`
+package. We limit the data to particle sizes between 0.25 and 8 mm. We use
+a discrepancy threshold of 50% with respect to the Beard (1976) model, setting
+the elevation (`alt`) to 230 m to account for the elevation effect on the fall
+velocity of raindrops.
+
+There will be two filters, one for Thies disdrometers (`fltT`) and one for
+Parsivel ones (`fltP`).
+
+```{r PSVDplot_filt}
+# Thies
+fltT <- psvd_filter(type='Thies', d=c(0.25,8), tau=0.5, alt=230)
+image(fltT)
+
+# Parsivel
+fltP <- psvd_filter(type='Parsivel', d=c(0.25,8), tau=0.5, alt=230)
+image(fltP)
+```
+
+We now do the plots. Transparency of the filtered area can be set with parameter
+`alpha`.
+
+```{r PSVDplot_filt2, echo=FALSE, fig.height=9, fig.width=11, message=FALSE, warning=FALSE}
+p1 <- psvd_plot(dsd1, filter=fltT, alpha=0, model='Beard', alt=230) +
+  ggtitle('T1') + xlim(0,6) + ylim(0,12)
+
+p2 <- psvd_plot(dsd2, filter=fltT, alpha=0, model='Beard', alt=230) +
+  ggtitle('T2') + xlim(0,6) + ylim(0,12)
+
+p3 <- psvd_plot(dsd3, type='Parsivel', filter=fltP, alpha=0, model='Beard', alt=230) +
+  ggtitle('P1') + xlim(0,6) + ylim(0,12)
+
+p4 <- psvd_plot(dsd4, type='Parsivel', filter=fltP, alpha=0, model='Beard', alt=230) +
+  ggtitle('P2') + xlim(0,6) + ylim(0,12)
+
+pp <- plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+#save_plot('../../plots/E365_PSVD.pdf', pp, base_width=11, base_height=9)
+pp
+```
+
+
+
+# Particle size distribution
+
+We now produce particle size distribution plots, using the function `psd_plot`
+from the `disdRo` package. These plots depict the particle density (ND), against
+the particle size class.
+
+## Unfiltered data
+
+```{r psdUnf, echo=FALSE, message=FALSE, fig.height=9, fig.width=11, warning=FALSE}
+p1 <- psd_plot(dsd1, 'Thies') + ggtitle('T1') + xlim(0,6)
+
+p2 <- psd_plot(dsd2, 'Thies') + ggtitle('T2') + xlim(0,6)
+
+p3 <- psd_plot(dsd3, 'Parsivel') + ggtitle('P1') + xlim(0,6)
+
+p4 <- psd_plot(dsd4, 'Parsivel') + ggtitle('P2') + xlim(0,6)
+
+plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+```
+
+## Filtered data
+
+```{r psdFilt, echo=FALSE, message=FALSE, fig.height=9, fig.width=11, warning=FALSE}
+p1 <- psd_plot(dsd1, 'Thies', fltT) + ggtitle('T1') + xlim(0,6)
+
+p2 <- psd_plot(dsd2, 'Thies', fltT) + ggtitle('T2') + xlim(0,6)
+
+p3 <- psd_plot(dsd3, 'Parsivel', fltP) + ggtitle('P1') + xlim(0,6)
+
+p4 <- psd_plot(dsd4, 'Parsivel', fltP) + ggtitle('P2') + xlim(0,6)
+
+plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+```
+
+
+
+# Particle velocity distribution
+
+We now produce particle fall velocity distribution plots, using the function
+`psd_plot` from the `disdRo` package. These plots depict the particle density
+(ND), against the particle size class.
+
+## Unfiltered data
+
+```{r pvdUnf, echo=FALSE, message=FALSE, fig.height=9, fig.width=11, warning=FALSE}
+p1 <- pvd_plot(dsd1, 'Thies') + ggtitle('T1') + xlim(0,10)
+
+p2 <- pvd_plot(dsd2, 'Thies') + ggtitle('T2') + xlim(0,10)
+
+p3 <- pvd_plot(dsd3, 'Parsivel') + ggtitle('P1') + xlim(0,10)
+
+p4 <- pvd_plot(dsd4, 'Parsivel') + ggtitle('P2') + xlim(0,10)
+
+plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+```
+
+## Filtered data
+
+```{r pvdFilt, echo=FALSE, message=FALSE, fig.height=9, fig.width=11, warning=FALSE}
+p1 <- pvd_plot(dsd1, 'Thies', fltT) + ggtitle('T1') + xlim(0,10)
+
+p2 <- pvd_plot(dsd2, 'Thies', fltT) + ggtitle('T2') + xlim(0,10)
+
+p3 <- pvd_plot(dsd3, 'Parsivel', fltP) + ggtitle('P1') + xlim(0,10)
+
+p4 <- pvd_plot(dsd4, 'Parsivel', fltP) + ggtitle('P2') + xlim(0,10)
+
+plot_grid(p1, p2, p3, p4, ncol=2, align='v')
+```
+
+
+
+
+
+----
+
+# Event time series
+
+```{r perlscript, eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
+# remove filter files so the script will not use them
+files <- list.files('.', '*.csv$')
+if (length(files)>0) file.remove(files)
+
+system('perl ../process_lst_art.pl p1 p1.txt linear')
+system('perl ../process_lst_art.pl p2 p2.txt linear')
+system('perl ../process_lst_art.pl p3 p3.txt linear')
+system('perl ../process_lst_art.pl p4 p4.txt linear')
+
+p1 <- read.table('p1.txt', sep=',', head=TRUE)
+p2 <- read.table('p2.txt', sep=',', head=TRUE)
+p3 <- read.table('p3.txt', sep=',', head=TRUE)
+p4 <- read.table('p4.txt', sep=',', head=TRUE)
+
+p1$time <- as.POSIXct(p1$time)
+p2$time <- as.POSIXct(p2$time)
+p3$time <- as.POSIXct(p3$time)
+p4$time <- as.POSIXct(p4$time)
+
+p1 <- p1[which(p1$time %in% times),]
+p2 <- p2[which(p2$time %in% times),]
+p3 <- p3[which(p3$time %in% times),]
+p4 <- p4[which(p4$time %in% times),]
+
+p1$nd <- rowSums(pmax(p1[,grep('nd[0-9]',names(p1))], 0), na.rm=TRUE)
+p2$nd <- rowSums(pmax(p2[,grep('nd[0-9]',names(p2))], 0), na.rm=TRUE)
+p3$nd <- rowSums(pmax(p3[,grep('nd[0-9]',names(p3))], 0), na.rm=TRUE)
+p4$nd <- rowSums(pmax(p4[,grep('nd[0-9]',names(p4))], 0), na.rm=TRUE)
+
+p1$id <- 'T1'
+p2$id <- 'T2'
+p3$id <- 'P1'
+p4$id <- 'P2'
+
+p1$pcum <- cumsum(ifelse(is.na(p1$r), 0, p1$r/60)) + p1$r*0
+p2$pcum <- cumsum(ifelse(is.na(p2$r), 0, p2$r/60)) + p2$r*0
+p3$pcum <- cumsum(ifelse(is.na(p3$r), 0, p3$r/60)) + p3$r*0
+p4$pcum <- cumsum(ifelse(is.na(p4$r), 0, p4$r/60)) + p4$r*0
+
+p1$pcum_meas <- cumsum(ifelse(is.na(p1$r_meas), 0, p1$r_meas/60)) + p1$r_meas*0
+p2$pcum_meas <- cumsum(ifelse(is.na(p2$r_meas), 0, p2$r_meas/60)) + p2$r_meas*0
+p3$pcum_meas <- cumsum(ifelse(is.na(p3$r_meas), 0, p3$r_meas/60)) + p3$r_meas*0
+p4$pcum_meas <- cumsum(ifelse(is.na(p4$r_meas), 0, p4$r_meas/60)) + p4$r_meas*0
+
+w <- c('id', 'time', 'nd', 'd50', 'r', 'pcum', 'z', 'e',
+       'r_meas', 'pcum_meas', 'z_meas','e_meas')
+pp <- rbind(p1[,w], p2[,w], p3[,w], p4[,w])
+
+pp$id <- factor(pp$id, levels=c('T1','T2','P1','P2'))
+
+pp$time <- as.POSIXct(pp$time)
+
+pp$nd[pp$r<0.1] <- 0
+
+pp$z[pp$z<0] <- 0
+pp$z_meas[pp$z_meas<0] <- 0
+
+pp$e[pp$r<0.1] <- 0
+pp$e_meas[pp$r<0.1] <- 0
+
+files <- list.files('.', 'p*.txt$')
+if (length(files)>0) file.remove(files)
+```
+
+```{r perlscript2, eval=TRUE, message=FALSE, warning=FALSE, include=FALSE}
+# create filter and margin correction factor files for Thies
+write.table(psvd_filter('Thies', d=c(0.3,Inf), tau=0.5, alt=230),
+            'filter_thies.csv' , sep=',')
+write.table(matrix(20/(20-disdRo::dia_m_t/2), nrow=1),
+            'margin_thies.csv', sep=',', row.names=FALSE, col.names=FALSE)
+
+# create filter and margin correction factor files for Parsivel
+write.table(psvd_filter('Parsivel', d=c(0.3,Inf), tau=0.5, alt=230),
+            'filter_parsivel.csv' , sep=',')
+write.table(matrix(30/(30-disdRo::dia_m_p/2), nrow=1),
+            'margin_parsivel.csv', sep=', ', row.names=FALSE, col.names=FALSE)
+
+system('perl ../process_lst_art.pl p1 pf1.txt linear')
+system('perl ../process_lst_art.pl p2 pf2.txt linear')
+system('perl ../process_lst_art.pl p3 pf3.txt linear')
+system('perl ../process_lst_art.pl p4 pf4.txt linear')
+
+p1 <- read.table('pf1.txt', sep=',', head=TRUE)
+p2 <- read.table('pf2.txt', sep=',', head=TRUE)
+p3 <- read.table('pf3.txt', sep=',', head=TRUE)
+p4 <- read.table('pf4.txt', sep=',', head=TRUE)
+
+p1$time <- as.POSIXct(p1$time)
+p2$time <- as.POSIXct(p2$time)
+p3$time <- as.POSIXct(p3$time)
+p4$time <- as.POSIXct(p4$time)
+
+p1 <- p1[which(p1$time %in% times),]
+p2 <- p2[which(p2$time %in% times),]
+p3 <- p3[which(p3$time %in% times),]
+p4 <- p4[which(p4$time %in% times),]
+
+p1$nd <- rowSums(pmax(p1[,grep('nd[0-9]',names(p1))], 0), na.rm=TRUE)
+p2$nd <- rowSums(pmax(p2[,grep('nd[0-9]',names(p2))], 0), na.rm=TRUE)
+p3$nd <- rowSums(pmax(p3[,grep('nd[0-9]',names(p3))], 0), na.rm=TRUE)
+p4$nd <- rowSums(pmax(p4[,grep('nd[0-9]',names(p4))], 0), na.rm=TRUE)
+
+p1$id <- 'T1'
+p2$id <- 'T2'
+p3$id <- 'P1'
+p4$id <- 'P2'
+
+p1$pcum <- cumsum(ifelse(is.na(p1$r), 0, p1$r/60)) + p1$r*0
+p2$pcum <- cumsum(ifelse(is.na(p2$r), 0, p2$r/60)) + p2$r*0
+p3$pcum <- cumsum(ifelse(is.na(p3$r), 0, p3$r/60)) + p3$r*0
+p4$pcum <- cumsum(ifelse(is.na(p4$r), 0, p4$r/60)) + p4$r*0
+
+p1$pcum_meas <- cumsum(ifelse(is.na(p1$r_meas), 0, p1$r_meas/60)) + p1$r_meas*0
+p2$pcum_meas <- cumsum(ifelse(is.na(p2$r_meas), 0, p2$r_meas/60)) + p2$r_meas*0
+p3$pcum_meas <- cumsum(ifelse(is.na(p3$r_meas), 0, p3$r_meas/60)) + p3$r_meas*0
+p4$pcum_meas <- cumsum(ifelse(is.na(p4$r_meas), 0, p4$r_meas/60)) + p4$r_meas*0
+
+w <- c('id', 'time', 'nd', 'd50', 'r', 'pcum', 'z', 'e',
+       'r_meas', 'pcum_meas', 'z_meas','e_meas')
+ppf <- rbind(p1[,w], p2[,w], p3[,w], p4[,w])
+
+ppf$id <- factor(ppf$id, levels=c('T1','T2','P1','P2'))
+
+ppf$time <- as.POSIXct(ppf$time)
+
+ppf$nd[ppf$r<0.1] <- 0
+
+ppf$z[ppf$z<0] <- 0
+ppf$z_meas[ppf$z_meas<0] <- 0
+
+ppf$e[ppf$r<0.1] <- 0
+ppf$e_meas[ppf$r<0.1] <- 0
+
+files <- list.files('.', 'p*.txt$')
+if (length(files)>0) file.remove(files)
+
+files <- list.files('.', '*.csv$')
+if (length(files)>0) file.remove(files)
+```
+
+
+
+
+## Time series, measured variables
+
+```{r ts_1, echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+p <- ggplot(pp, aes(time, nd, color=id, linetype=id)) +
+  scale_x_datetime() +
+  scale_color_manual(name='Device', values=c('tomato','tomato','turquoise3','turquoise3')) +
+  scale_linetype_manual(name='Device', values=c('solid','dashed','solid','dashed')) +
+  theme_bw()
+
+p1 <- p + geom_line(aes(y=pcum_meas)) +
+  ylab('P (mm)') +
+  ggtitle('Cumulative precipitation')
+
+p2 <- p + geom_line(aes(y=r_meas)) +
+  ylab('R (mm h-1)') +
+  ggtitle('Rain rate')
+
+p3 <- p + geom_line(aes(y=z_meas)) +
+  ylab('Z (dB mm6 m-3)') +
+  ggtitle('Radar reflectivity')
+
+p4 <- p + geom_line(aes(y=e_meas)) +
+  ylab('E (J m-2 mm-1)') +
+  ggtitle('Kinetic energy (for R > 0.1 mm h-1)')
+
+plot_grid(p2, p1, p3, p4, ncol=2, align='v')
+```
+
+
+
+## Time series, calculated variables, no filter & no margin correction
+
+```{r ts_2, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+p <- ggplot(pp, aes(time, nd, color=id, linetype=id)) +
+  scale_x_datetime() +
+#  scale_colour_manual(name='Device', values=c('grey48','grey48','black','black')) +
+  scale_color_manual(name='Device', values=c('tomato','tomato','turquoise3','turquoise3')) +
+  scale_linetype_manual(name='Device', values=c('solid','dashed','solid','dashed')) +
+  theme_bw()
+
+p1 <- p + geom_line(aes(y=pcum)) +
+  ylab('P (mm)') +
+  ggtitle('Cumulative precipitation')
+
+p2 <- p + geom_line(aes(y=r)) +
+  ylab('R (mm h-1)') +
+  ggtitle('Rain rate')
+
+p3 <- p + geom_line(aes(y=nd)) +
+  scale_y_log10(labels=fancy_scientific) +
+  ylab('ND (m-3 mm-1)') +
+  ggtitle('Number density (for R > 0.1 mm h-1)')
+
+p4 <- p + geom_line(aes(y=d50)) +
+  ylab('D50 (mm)') +
+  ggtitle('Median particle size ')
+
+p5 <- p + geom_line(aes(y=z)) +
+  ylab('Z (dB mm6 m-3)') +
+  ggtitle('Radar reflectivity')
+
+p6 <- p + geom_line(aes(y=e)) +
+  ylab('E (J m-2 mm-1)') +
+  ggtitle('Kinetic energy (for R > 0.1 mm h-1)')
+
+p0 <- plot_grid(p2, p1, p3, p4, p5, p6, ncol=2, align='v')
+#save_plot('../../plots/E365_TS_nocorr.pdf', p0, base_width=12, base_height=12)
+p0
+```
+
+
+
+## Time series, calculated variables, filter & margin correction
+
+```{r ts_3, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+p <- ggplot(ppf, aes(time, nd, color=id, linetype=id)) +
+  scale_x_datetime() +
+#  scale_colour_manual(name='Device', values=c('grey48','grey48','black','black')) +
+  scale_color_manual(name='Device', values=c('tomato','tomato','turquoise3','turquoise3')) +
+  scale_linetype_manual(name='Device', values=c('solid','dashed','solid','dashed')) +
+  theme_bw()
+
+p1 <- p + geom_line(aes(y=pcum)) +
+  ylab('P (mm)') +
+  ggtitle('Cumulative precipitation')
+
+p2 <- p + geom_line(aes(y=r)) +
+  ylab('R (mm h-1)') +
+  ggtitle('Rain rate')
+
+p3 <- p + geom_line(aes(y=nd)) +
+  scale_y_log10(labels=fancy_scientific) +
+  ylab('ND (m-3 mm-1)') +
+  ggtitle('Number density (for R > 0.1 mm h-1)')
+
+p4 <- p + geom_line(aes(y=d50)) +
+  ylab('D50 (mm)') +
+  ggtitle('Median particle size ')
+
+p5 <- p + geom_line(aes(y=z)) +
+  ylab('Z (dB mm6 m-3)') +
+  ggtitle('Radar reflectivity')
+
+p6 <- p + geom_line(aes(y=e)) + ylab('E (J m-2 mm-1)') +
+  ggtitle('Kinetic energy (for R > 0.1 mm h-1)')
+
+p0 <- plot_grid(p2, p1, p3, p4, p5, p6, ncol=2, align='v')
+#save_plot('../../plots/E365_TS_corr.pdf', p0, base_width=12, base_height=12)
+p0
+```
