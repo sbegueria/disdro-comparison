@@ -1078,3 +1078,16 @@ multivariate normal random effects, using Penalized Quasi-Likelihood.
 #glmmPQL(d50~0+Type, random=~1|Mast, family=Gamma(link='identity'),
 #  data=dat[smp,], weights=varIdent(form=~1|Type))
 ```
+
+
+
+
+
+----
+
+# Example events
+
+Detailed analysis of some events.
+
+## E365
+
