@@ -11,4 +11,4 @@ Please, if you use all or part of the data and / or code on this repository, cit
 
 And include a reference to the article:
 
-**Beguería, S., Angulo-Martínez, M., Latorre, B., Fernández-Raga, M.F. (2017) Comparison of precipitation measurements by Ott Parsivel2 and Thies LPM optical disdrometers. Hydrology and Earth System Science Discussions, doi:doi.org/10.5194/hess-2017-652**
+**Beguería, S., Angulo-Martínez, M., Latorre, B., Fernández-Raga, M.F. (2018) Comparison of precipitation measurements by Ott Parsivel2 and Thies LPM optical disdrometers. Hydrology and Earth System Science.**
