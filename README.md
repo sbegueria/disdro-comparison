@@ -7,7 +7,7 @@ Feel free to clone or download the whole repository in order to replicate the an
 In order to see the analysis and aditional material not included in the article, the best way is to use the repository pages: https://sbegueria.github.io/disdro-comparison/. 
 
 Please, if you use all or part of the data and / or code on this repository, cite this package on your work as:
-**Beguería, S. (2018) disdro-comparison: a dataset and code for comparing precipitation measurements by Ott Parsivel2 and Thies LPM optical disdrometers, doi:10.5281/zenodo.123350892**.
+**Beguería, S. (2018) disdro-comparison: a dataset and code for comparing precipitation measurements by Ott Parsivel2 and Thies LPM optical disdrometers, doi:10.5281/zenodo.1186413**.
 
 And include a reference to the article:
 
